@@ -19,6 +19,8 @@ import matplotlib as mpl
 
 import torch
 import torchvision.transforms as transforms
+import torch.nn as nn
+from torchvision import models as torch_models
 
 # from streamlit group
 from load_css import local_css
@@ -108,9 +110,56 @@ def transform_image(arr):
 
 class_names = ["un", 'ring', 'troph', 'shiz']
 
+def set_parameter_requires_grad(model, feature_extracting):
+    if feature_extracting:
+        for param in model.parameters():
+            param.requires_grad = False
+
+def initialize_model(model_name, num_classes, feature_extract, use_pretrained=True):
+    # Initialize these variables which will be set in this if statement. Each of these
+    #   variables is model specific.
+    model_ft = None
+    input_size = 0
+
+    if model_name == "resnet":
+        """ Resnet18
+        """
+        model_ft = torch_models.resnet18(pretrained=use_pretrained)
+        set_parameter_requires_grad(model_ft, feature_extract)
+        num_ftrs = model_ft.fc.in_features
+        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+        input_size = 224
+
+
+    elif model_name == "squeezenet":
+        """ Squeezenet
+        """
+        model_ft = torch_models.squeezenet1_0(pretrained=use_pretrained)
+        set_parameter_requires_grad(model_ft, feature_extract)
+        model_ft.classifier[1] = nn.Conv2d(512, num_classes, kernel_size=(1,1), stride=(1,1))
+        model_ft.num_classes = num_classes
+        input_size = 224
+
+    elif model_name == "densenet":
+        """ Densenet
+        """
+        model_ft = torch_models.densenet121(pretrained=use_pretrained)
+        set_parameter_requires_grad(model_ft, feature_extract)
+        num_ftrs = model_ft.classifier.in_features
+        model_ft.classifier = nn.Linear(num_ftrs, num_classes)
+        input_size = 224
+
+    else:
+        print("Invalid model name, exiting...")
+        exit()
+
+    return model_ft, input_size
+
+
+
 def get_prediction(arr):
     tensor = transform_image(arr)
-    outputs = model.forward(tensor)
+    outputs = model_ft.forward(tensor)
     _, y_hat = outputs.max(1)
     return class_names[y_hat]
 
@@ -197,6 +246,25 @@ if len(ls_images) > 0:
         st.warning("Note: it takes more time to run with this option. After the first run you will see the computed diameter. \
         Unchek the checkbox and manually put the computed diamater to speed up the app for future runs.")
     if st.button('Analyze'):
+        
+        with st.spinner("Loading Model"):
+            # Models to choose from [resnet, alexnet, vgg, squeezenet, densenet, inception]
+            model_name = "resnet"
+            # Number of classes in the dataset
+            num_classes = 5
+            # Flag for feature extracting. When False, we finetune the whole model,
+            #   when True we only update the reshaped layer params
+            feature_extract = True
+            # Initialize the model for this run
+            model_ft, input_size = initialize_model(model_name, num_classes, feature_extract, use_pretrained=True)
+            device = torch.device('cpu')
+            # Load cnn model
+            # PATH = "model.pth"
+            PATH = "resnet_model_5c_978.pth"
+            # model = torch.load(PATH, map_location = device)
+            model_ft.load_state_dict(torch.load(PATH, map_location = device))
+            model_ft.eval()
+
         for fidx, image in enumerate(ls_images):
             st.markdown('### Processing')
             st.write("Image #", fidx +1 , file_up[fidx].name)
@@ -226,12 +294,7 @@ if len(ls_images) > 0:
                 outlines_ls = get_cell_outlines(masks)
 
             
-            with st.spinner("Loading Model"):
-                device = torch.device('cpu')
-                # Load cnn model
-                PATH = "model.pth"
-                model = torch.load(PATH, map_location = device)
-                model.eval()
+
             
             size_thres = diameter*0.8
             tmp_img = image.copy()
