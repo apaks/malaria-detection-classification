@@ -108,7 +108,7 @@ def transform_image(arr):
     im = Image.fromarray(arr)
     return my_transforms(im).unsqueeze(0)
 
-class_names = ["un", 'ring', 'troph', 'shiz']
+class_names = ["U", 'R', 'T', 'S', 'G']
 
 def set_parameter_requires_grad(model, feature_extracting):
     if feature_extracting:
@@ -260,7 +260,7 @@ if len(ls_images) > 0:
             device = torch.device('cpu')
             # Load cnn model
             # PATH = "model.pth"
-            PATH = "resnet_model_5c_978.pth"
+            PATH = "resnet_model_5c_aug.pth"
             # model = torch.load(PATH, map_location = device)
             model_ft.load_state_dict(torch.load(PATH, map_location = device))
             model_ft.eval()
@@ -298,10 +298,11 @@ if len(ls_images) > 0:
             
             size_thres = diameter*0.8
             tmp_img = image.copy()
-            d_results = {"un": [],
-                        "ring": [],
-                        "troph": [],
-                        "shiz": []
+            d_results = {"U": [],
+                        "R": [],
+                        "T": [],
+                        "S": [],
+                        "G": []
                         }
             with st.spinner("Running inference..."):
             # st.text("Running inference ...")
@@ -324,13 +325,14 @@ if len(ls_images) > 0:
 
 
             with st.spinner("Plotting results"):
-                t = "<div> <span class='highlight yellow'> Ring </span> \
-                        <span class='highlight magenta'> Troph </span>      \
-                        <span class='highlight cyan'> Shiz </span>      </div>"
+                t = "<div> <span class='highlight green'> R </span> \
+                        <span class='highlight orange'> T </span>      \
+                        <span class='highlight purple'> S </span>      \
+                        <span class='highlight blue'> G </span>  </div>"
                 st.markdown(t, unsafe_allow_html=True)
 
-                colors_stage = { "un": '#000000', "ring": "#ffc20a", 
-                    "troph": "#40b0a6", "shiz": "#d35fb7" }
+                colors_stage = { "U": '#000000', "R": "#ffc20a", 
+                    "T": "#40b0a6", "S": "#d35fb7", 'G': '#1d41b9c5' }
                 fig, ax = plt.subplots(figsize = (8,8))
                 # yellow: ring; magenta: troph; cyan: shiz
                 ax.imshow(image)
@@ -348,8 +350,8 @@ if len(ls_images) > 0:
                 for k in class_names:
                     out_stat.append(len(d_results[k]))
                 df = pd.DataFrame({'image': file_up[fidx].name, "all_cells":np.sum(out_stat), 
-                            "R":out_stat[1], "T":out_stat[2], "S":out_stat[3], 
-                            "Parasitemia": 1 - out_stat[0]/np.sum(out_stat)}, index = [0])
+                            'U':out_stat[0], "R":out_stat[1], "T":out_stat[2], "S":out_stat[3], 
+                            "G":out_stat[4], "Parasitemia": 1 - out_stat[0]/np.sum(out_stat)}, index = [0])
                 st.write(df)
                 ls_df.append(df)
         # export_as_pdf = st.button("Export Report")
